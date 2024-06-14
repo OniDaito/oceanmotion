@@ -1,0 +1,24 @@
+site_name: OceanMotion
+
+theme:
+  name: "readthedocs"
+
+plugins:
+  - search
+  - mkdocstrings:
+      handlers:
+          python:
+            options:
+              show_docstring_modules: false
+  - autorefs
+
+markdown_extensions:
+  - sane_lists
+
+nav:
+  - index.md
+  - explanation.md
+  - tutorials.md
+  - how-to-guides.md
+  - reference.md
+

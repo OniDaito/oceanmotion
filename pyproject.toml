@@ -1,0 +1,62 @@
+[project]
+name = "OceanMotion"
+description = "A PyTorch-based neural network for detecting moving objects in sonar images"
+version = "0.1.0"
+authors = [
+    { name = "Benjamin James Blundell", email = "bjb8@st-andrews.ac.uk" }
+]
+readme = "README.md"
+requires-python = ">=3.8"
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "License :: OSI Approved :: MIT License",
+    "Natural Language :: English",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3.8",
+    "Programming Language :: Python :: 3.9",
+]
+
+dependencies = [
+    "bokeh",
+    "ffmpegio",
+    "ffmpegio_core",
+    "GitPython",
+    "GitPython",
+    "numpy",
+    "palettable",
+    "Pillow",
+    "pytritech",
+    "pytz",
+    "scipy",
+    "skimage",
+    "torch",
+    "torchvision",
+    "tqdm",
+    "wandb",
+]
+
+[project.optional-dependencies]
+dev = [
+    "tox",
+    "pre-commit",
+    "bump2version",
+    "mkdocs"
+]
+
+test = [
+    "pytest"
+]
+
+[tool.pytest.ini_options]
+pythonpath = [
+  "src"
+]
+
+[build-system]
+build-backend = "flit_core.buildapi"
+requires = ["flit_core >=3.2,<4"]
+
+[project.urls]
+"Homepage" = "https://github.com/pypa/sampleproject"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"

@@ -1,0 +1,4 @@
+__pycache__
+*.pyc
+venv
+wrappers/java/oceanmotion/target

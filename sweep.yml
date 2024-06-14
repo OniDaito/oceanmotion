@@ -1,0 +1,32 @@
+command:
+  - ${interpreter}
+  - ${program}
+  - --wandb
+  - --presplit
+  - ${args}
+method: bayes
+metric:
+  goal: minimize
+  name: Relative Time (Process)
+parameters:
+  batch_size:
+    value: 2
+  datapath:
+    value: /home/oni/sealz/datasets/2024_03_07
+  epochs:
+    distribution: int_uniform
+    max: 30
+    min: 5
+  device:
+    value: cuda
+  outpath:
+    value: /home/oni/sealz/runs/sweep_2024_03_15
+  seed:
+    distribution: int_uniform
+    max: 10000
+    min: 1
+  learning_rate:
+    distribution: uniform
+    max: 0.01
+    min: 5e-05
+program: train.py
