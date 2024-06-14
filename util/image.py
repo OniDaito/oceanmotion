@@ -15,7 +15,6 @@ __author__ = "Benjamin Blundell <bjb8@st-andrews.ac.uk>"
 
 import numpy as np
 from PIL import Image
-from typing import List
 
 
 def pred_to_gif(np_stack: np.array, out_path: str):

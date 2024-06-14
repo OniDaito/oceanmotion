@@ -17,8 +17,6 @@ import torch
 import torch.nn as nn
 from torch.nn.modules.loss import _Loss
 import torch.nn.functional as F
-from typing import Optional
-from functools import partial
 
 """ The (symmetric/asymetric) unified focal loss is the tversky and focal loss combined.
     https://www.sciencedirect.com/science/article/pii/S0895611121001750
