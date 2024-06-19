@@ -95,7 +95,6 @@ def loop(
             model, sess_options, providers=rt.get_available_providers())
         input_name = sess.get_inputs()[0].name
 
-
         while True:
             # tick = time.perf_counter()
             np_img, img_time = gbuff.__next__()
@@ -118,7 +117,7 @@ def loop(
                 np_queue = np.array([q[0] for q in queue])
 
                 stack = np.expand_dims(np_queue, axis=0)
-                stack = np.expand_dims(np_queue, axis=0)
+                stack = np.expand_dims(stack, axis=0)
                 stack = stack.astype(np.float32)
     
                 pred_stack = sess.run(None, {input_name: stack})[0]
