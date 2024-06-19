@@ -105,8 +105,9 @@ def loop(
                 continue
 
             # Perform the crop and resize on our images.
+            # Make sure we go height then width first on the numpy resize.
             final_img = np_img[0:crop_height, :]
-            final_img = resize(final_img, img_size, preserve_range=True)
+            final_img = resize(final_img, (img_size[1], img_size[0]), preserve_range=True)
             final_img = final_img.astype(float) / 255.0
             assert(np.max(final_img) <= 1.0) 
             queue.append((final_img, img_time))
@@ -129,7 +130,8 @@ def loop(
                 # Need to see if there is any detection here in the preds
                 # TODO - this is super simple and also, we are looking at the
                 # most recent frame only.
-                # As I recall, fancier methods didn't really seem to work.
+                # Looking over the entire 16 frame history didn't really improve
+                # things very much it seemed but there may be a better solution?
                 cbase = final_img
 
                 if np.max(pred) > 0:
