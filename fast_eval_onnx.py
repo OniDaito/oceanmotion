@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 r"""
-     ___                   _  _      _  o          
-     )) ) __  __ ___  _ _  )\/,) __  )L _  __  _ _ 
-    ((_( ((_ (('((_( ((\( ((`(( ((_)(( (( ((_)((\( 
+     ___                   _  _      _  o
+     )) ) __  __ ___  _ _  )\/,) __  )L _  __  _ _
+    ((_( ((_ (('((_( ((\( ((`(( ((_)(( (( ((_)((\(
 
 fast_eval_onnx.py runs an OceanMotion model against a list of
 GLFs but using the ONNX version of the model. This version
@@ -52,9 +52,9 @@ def loop(
     qsize=16,
     halfrate=False,
 ):
-    """ Loop through the range of GLFs, predicting and saving these predictions 
+    """Loop through the range of GLFs, predicting and saving these predictions
     as fast as possible.
-    
+
     Args:
         model (): Our current model in onnx format.
         gbuff (GLFBuffer): a GLFBuffer instance.
@@ -88,11 +88,12 @@ def loop(
     sess_options.enable_profiling = True
 
     def sigmoid(z):
-        return 1/(1 + np.exp(-z))
+        return 1 / (1 + np.exp(-z))
 
     try:
         sess = rt.InferenceSession(
-            model, sess_options, providers=rt.get_available_providers())
+            model, sess_options, providers=rt.get_available_providers()
+        )
         input_name = sess.get_inputs()[0].name
 
         while True:
@@ -107,9 +108,11 @@ def loop(
             # Perform the crop and resize on our images.
             # Make sure we go height then width first on the numpy resize.
             final_img = np_img[0:crop_height, :]
-            final_img = resize(final_img, (img_size[1], img_size[0]), preserve_range=True)
+            final_img = resize(
+                final_img, (img_size[1], img_size[0]), preserve_range=True
+            )
             final_img = final_img.astype(float) / 255.0
-            assert(np.max(final_img) <= 1.0) 
+            assert np.max(final_img) <= 1.0
             queue.append((final_img, img_time))
 
             # Do we have a big enough queue yet?
@@ -120,13 +123,15 @@ def loop(
                 stack = np.expand_dims(np_queue, axis=0)
                 stack = np.expand_dims(stack, axis=0)
                 stack = stack.astype(np.float32)
-    
+
+                # Predict, then take the last pred off the top of the stack, run
+                # through sigmoid and confidence check then convert.
                 pred_stack = sess.run(None, {input_name: stack})[0]
-
-                pred = pred_stack[-1]
+                pred = pred_stack.squeeze()
+                pred = pred[-1]
                 pred = np.where(sigmoid(pred) > confidence, 1, 0)
-                pred = pred.squeeze().astype(np.uint8)
-
+                pred = pred.astype(np.uint8)
+    
                 # Need to see if there is any detection here in the preds
                 # TODO - this is super simple and also, we are looking at the
                 # most recent frame only.
@@ -137,7 +142,7 @@ def loop(
                 if np.max(pred) > 0:
                     if not detecting:
                         detecting = True
-                    
+
                     bbs = bbs_in_image(pred)
 
                     cpred = (pred * 255).astype(np.uint8)
@@ -197,6 +202,7 @@ def loop(
         print("GBuffer completed.")
 
     return "Completed"
+
 
 def setup_sqlite(out_path: str, start_date: datetime, end_date: datetime):
     """Create the SQLITE file to hold the required outputs.
@@ -267,8 +273,8 @@ def main(args):
         print("Not using end date.")
 
     assert start_date < end_date
-    
-    estimated_total = (end_date - start_date)
+
+    estimated_total = end_date - start_date
     estimated_total = int(estimated_total.total_seconds() * 4)
     print("Estimated number of steps:", estimated_total)
 
@@ -277,7 +283,12 @@ def main(args):
     jobs = []
 
     gbuff0 = GLFBuffer(
-        args.glf_path, args.sonarid, args.img_width, args.img_height, start_date, mid_date
+        args.glf_path,
+        args.sonarid,
+        args.img_width,
+        args.img_height,
+        start_date,
+        mid_date,
     )
 
     gbuff1 = GLFBuffer(
@@ -287,15 +298,33 @@ def main(args):
     with tqdm(total=estimated_total) as pbar:
         jobs.append((args.model_path, gbuff0, start_date, mid_date))
         jobs.append((args.model_path, gbuff1, mid_date, end_date))
-    
+
         with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
-            futures = [ex.submit(loop, m, g, args.confidence, img_size, args.crop_height, s, e, args.out_path, pbar, args.window_size, args.halfrate) for m,g,s,e in jobs]
+            futures = [
+                ex.submit(
+                    loop,
+                    m,
+                    g,
+                    args.confidence,
+                    img_size,
+                    args.crop_height,
+                    s,
+                    e,
+                    args.out_path,
+                    pbar,
+                    args.window_size,
+                    args.halfrate,
+                )
+                for m, g, s, e in jobs
+            ]
 
             for future in as_completed(futures):
                 try:
                     future.result()
                 except Exception as exc:
-                    print('%r generated an exception: %s' % (future, exc))
+                    print("%r generated an exception: %s" % (future, exc))
+                    import traceback
+                    traceback.print_exc()
 
 
 if __name__ == "__main__":
@@ -307,9 +336,14 @@ if __name__ == "__main__":
         epilog="SMRU St Andrews",
     )
     parser.add_argument(
-        "-m", "--model_path", default=".", help="The path to the saved model in ONNX format."
+        "-m",
+        "--model_path",
+        default=".",
+        help="The path to the saved model in ONNX format.",
     )
-    parser.add_argument("-o", "--out_path", default=".", help="The path for the output.")
+    parser.add_argument(
+        "-o", "--out_path", default=".", help="The path for the output."
+    )
     parser.add_argument(
         "-l", "--glf_path", default=".", help="The path to the GLF Files."
     )
@@ -378,7 +412,6 @@ if __name__ == "__main__":
         default="UNet3D",
         help="The model class to load (default: UNet3D)",
     )
-
 
     args = parser.parse_args()
 
