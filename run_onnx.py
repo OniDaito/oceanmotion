@@ -71,11 +71,10 @@ def main(args):
         t0 = time.time()
         pred_stack = sess.run(None, {input_name: stack})[0]
         t1 = time.time()
-        inf_times.appen(t1-t0)
+        inf_times.append(t1-t0)
 
         pred = np.where(sigmoid(pred_stack) > args.confidence, 1, 0)
         pred = pred.squeeze().astype(np.uint8)
-
 
         # TODO - this line essentially means that data arriving later takes precidence
         # past predictions for a frame are overwritten by future results. Is that ideal?
