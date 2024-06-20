@@ -21,7 +21,7 @@ from tqdm import tqdm
 import numpy as np
 from util.model import load_model_pt
 from datetime import datetime
-from eval.eval import predict, get_group_np, get_group_og
+from eval.eval import jaccard, predict, get_group_np, get_group_og
 from eval.glf import get_glf_time_np
 from util.image import pred_to_gif
 from util.video import pred_to_video
@@ -72,15 +72,18 @@ def predict_group(args, model, device:str):
         args.crop_height,
     )
 
-    save_results(
-        frames,
-        preds,
-        mask,
-        args.out_path,
-        args.group_huid + "_" + str(args.sonar_id),
-        args.img_height,
-        args.polar,
-    )
+    if args.score_only:
+        print(jaccard(mask, preds))
+    else:
+        save_results(
+            frames,
+            preds,
+            mask,
+            args.out_path,
+            args.group_huid + "_" + str(args.sonar_id),
+            args.img_height,
+            args.polar,
+        )
 
 
 def predict_times(args, model, start_date: datetime, end_date: datetime, device: str):
@@ -365,6 +368,12 @@ if __name__ == "__main__":
         action="store_true",
         default=False,
         help="Rather than predict full paths, predict sectors(default: false)",
+    )
+    parser.add_argument(
+        "--score-only",
+        action="store_true",
+        default=False,
+        help="Just output the Jaccard Score (default: false)",
     )
     parser.add_argument(
         "-t",

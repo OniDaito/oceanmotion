@@ -17,7 +17,7 @@ __author__ = "Benjamin Blundell <bjb8@st-andrews.ac.uk>"
 import numpy as np
 import onnxruntime as rt
 from sealhits.db.db import DB
-from eval.eval import get_group_np, get_group_og
+from eval.eval import get_group_np, get_group_og, jaccard
 from run import save_results
 import time
 
@@ -48,7 +48,7 @@ def main(args):
     )
     
     def sigmoid(z):
-        return 1/(1 + np.exp(-z))
+        return 1.0/(1.0 + np.exp(-z))
 
     sess = rt.InferenceSession(
         args.model_file, sess_options, providers=rt.get_available_providers())
@@ -56,7 +56,6 @@ def main(args):
     inf_times = []
 
     # Go through the group frames as before
-
     preds = np.zeros(frames.shape, dtype=np.uint8)
 
     for idx in range(0, len(frames) - args.pred_length + 1):
@@ -81,14 +80,28 @@ def main(args):
         preds[start:end, :, :] = pred
 
     prof_file = sess.end_profiling()
-    print(prof_file)
-    print("Average Inference Time:", sum(inf_times)/len(inf_times))
-    # Now get the original group as well
-    mask = get_group_og(seal_db, args.group_huid, og_img_size, small_img_size, args.sonar_id, args.crop_height)
 
-    save_results(
-        frames, preds, mask, args.out_path, args.group_huid + "_" + str(args.sonar_id), args.img_height, args.polar
-    )
+    if args.score_only:
+        # Now get the original group as well
+        mask = get_group_og(
+            seal_db,
+            args.group_huid,
+            og_img_size,
+            small_img_size,
+            args.sonar_id,
+            args.crop_height,
+        )
+
+        print(jaccard(mask, pred))
+    else:
+        print(prof_file)
+        print("Average Inference Time:", sum(inf_times)/len(inf_times))
+        # Now get the original group as well
+        mask = get_group_og(seal_db, args.group_huid, og_img_size, small_img_size, args.sonar_id, args.crop_height)
+
+        save_results(
+            frames, preds, mask, args.out_path, args.group_huid + "_" + str(args.sonar_id), args.img_height, args.polar
+        )
 
 
 if __name__ == "__main__":
@@ -201,6 +214,12 @@ if __name__ == "__main__":
         "--dbhost",
         default="localhost",
         help="The hostname for the postgresql database (default: localhost)",
+    )
+    parser.add_argument(
+        "--score-only",
+        action="store_true",
+        default=False,
+        help="Just output the Jaccard Score (default: false)",
     )
 
     args = parser.parse_args()
