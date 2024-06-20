@@ -57,13 +57,33 @@ Second, install the version of the ONNX Python runtime for CUDA12 (which my curr
 Third, the onnxruntime-gpu needs the [TensorRT](https://docs.nvidia.com/deeplearning/tensorrt/install-guide/index.html) from NVIDIA. This can be installed with pip:
     pip install tensorrt
 
+Alternatively, just run: 
+    pip -r requirements_cuda.txt 
+
 It may also be that your Linux distro has the TensorRT software as a package inside it's package manager.
+
+Finally, you need to install a version of cudnn that matches the ones supported in the runtime:
+
+    cuda 12.4
+    cuDNN 8.9.2.26
+
+This can be found at [https://developer.nvidia.com/rdp/cudnn-archive#a-collapse892-120](https://developer.nvidia.com/rdp/cudnn-archive#a-collapse892-120)
+
+Typically, the version of cuda/cuDNN installed by your package manager is the correct one, and one probably shoudn't mess with it for one program. However, it is possible to manage separate installs by use of a path:
+
+    export PATH=/usr/local/cuda-/bin:$PATH
+    export CUDADIR=/usr/local/cuda-$v
+    export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/usr/local/cuda-$v/lib64
 
 You can then run the same **run_onnx.py** command as before.
 
 ## Running an existing model against a time range and GLF files
 
+If you have a directory of GLF files you can run the program against a time slot (say from 2023-04-05 00:00:00.0 to 2023-04-05 00:02:00.0 - two minutes worth) as follows:
 
+    python run.py -m /path/to/model.pt -o /path/to/output -l /path/to/glfs -a "2023-04-05 00:00:00.0" -b "2023-04-05 00:02:00.0" -t UNetTRed
+
+Note that as run produces video, longer time ranges will require a lot of memory.
 
 ## Running against a test set
 

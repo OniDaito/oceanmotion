@@ -24,7 +24,7 @@ from skimage.transform import resize
 from sealhits.sources.files import glf_files_avail
 from pytritech.glftimes import glf_times
 from pytritech.glf import GLF
-from typing import List, Union, Tuple
+from typing import List, Generator, Tuple
 
 
 class GLFBuffer:
@@ -32,6 +32,7 @@ class GLFBuffer:
         self,
         path: str,
         sonar_id: int,
+        crop_height: int,
         img_width: int,
         img_height: int,
         start_date: datetime,
@@ -42,6 +43,7 @@ class GLFBuffer:
         Args:
             path (str): the path to the GLF files.
             sonar_id (int): the sonar id.
+            crop_height (int): the initial crop height in pixels.
             img_width (int): the output image width in pixels.
             img_height (int): the output image height in pixels.
             start_date (datetime): the starting datetime.
@@ -51,6 +53,7 @@ class GLFBuffer:
         self.dates_glfs = []  # (start, end, glffile)
         self.img_width = img_width
         self.img_height = img_height
+        self.crop_height = crop_height
 
         ts = start_date
         te = end_date
@@ -120,6 +123,10 @@ class GLFBuffer:
                     image_data, image_size = self.glf.extract_image(image_rec)
                     image_np = None
 
+                    # Intial crop before resize.
+                    if image_size[0] > self.crop_height:
+                        image_data = image_data[0:self.crop_height, :]
+
                     if self.img_height > 0 and self.img_width > 0:
                         if (
                             image_size[0] != self.img_width
@@ -157,8 +164,10 @@ def images_from_glf(
     end_date: datetime,
     sonarid: int,
     halfrate: bool,
-) -> np.array:
-    """ Return images from a list of GLFs.
+) -> Generator[np.array]:
+    """ Return images from a list of GLFs. This
+    function is an iterator in order to save
+    memory when running on long ranges.
 
     Args:
         glf_files (List): the list of GLF files.
@@ -168,7 +177,7 @@ def images_from_glf(
         halfrate (bool): drop every other frame?
     """
     glf_files.sort()
-    frames = []  # Hold the images we've found
+    #frames = []  # Hold the images we've found
     skip_remaining = False
     start = False
     img_count = 0
@@ -214,12 +223,15 @@ def images_from_glf(
                             (image_size[1], image_size[0])
                         )
 
-                        frames.append(image_np)
+                        yield image_np
+
+                        #frames.append(image_np)
 
                 if skip_remaining:
                     break
 
-    return frames
+    #return frames
+    return
 
 
 def get_glf_time_np(
@@ -229,11 +241,12 @@ def get_glf_time_np(
     img_size: Tuple[int, int],
     sonar_id: int,
     crop_height: int,
-    pred_length: int,
     halfrate=False,
     cthulhu=False,
-) -> Union[np.array, None]:
-    """ Get frames between particular times.
+) -> Generator[np.array]:
+    """ Get frames between particular times. This function is 
+    an iterator and yields a single frame, in order to keep
+    memory usage down on big time ranges.
     
     Args:
         glf_path (str): a path to a GLF file
@@ -242,7 +255,6 @@ def get_glf_time_np(
         img_size (Tuple[int, int]): The image size (width then height in pixels).
         sonar_id (int): the sonar id.
         crop_height (int): the height the original image was cropped to.
-        pred_length (int): the prediction window length.
         halfrate (bool): drop every other frame?
         cthulhu (bool): summon the unspeakable!
     """
@@ -263,16 +275,8 @@ def get_glf_time_np(
 
     print("Found", str(len(full_paths)), "glfs.")
 
-    glf_images = images_from_glf(full_paths, start_date, end_date, sonar_id, halfrate)
-
-    print("Found", len(glf_images), "frames.")
-
-    if len(glf_images) < pred_length:
-        return None
-
-    frames = []
-
-    for img in glf_images:
+    for img in images_from_glf(full_paths, start_date, end_date, sonar_id, halfrate):
+  
         final_img = img[0:crop_height, :]
         final_img = resize(final_img, (img_size[1], img_size[0]), preserve_range=True)
 
@@ -284,6 +288,6 @@ def get_glf_time_np(
 
         final_img = final_img.astype(float) / 255.0
         assert np.max(final_img) <= 1.0
-        frames.append(final_img)
+        yield final_img
 
-    return np.array(frames)
+    return

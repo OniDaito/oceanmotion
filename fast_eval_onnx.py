@@ -131,7 +131,7 @@ def loop(
                 pred = pred[-1]
                 pred = np.where(sigmoid(pred) > confidence, 1, 0)
                 pred = pred.astype(np.uint8)
-    
+
                 # Need to see if there is any detection here in the preds
                 # TODO - this is super simple and also, we are looking at the
                 # most recent frame only.
@@ -285,6 +285,7 @@ def main(args):
     gbuff0 = GLFBuffer(
         args.glf_path,
         args.sonarid,
+        args.crop_height,
         args.img_width,
         args.img_height,
         start_date,
@@ -292,7 +293,13 @@ def main(args):
     )
 
     gbuff1 = GLFBuffer(
-        args.glf_path, args.sonarid, args.img_width, args.img_height, mid_date, end_date
+        args.glf_path,
+        args.sonarid,
+        args.crop_height,
+        args.img_width,
+        args.img_height,
+        mid_date,
+        end_date,
     )
 
     with tqdm(total=estimated_total) as pbar:
@@ -324,6 +331,7 @@ def main(args):
                 except Exception as exc:
                     print("%r generated an exception: %s" % (future, exc))
                     import traceback
+
                     traceback.print_exc()
 
 

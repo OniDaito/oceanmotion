@@ -97,25 +97,34 @@ def predict_times(args, model, start_date: datetime, end_date: datetime, device:
     """
     # Find the GLFs and read through till we get to the times we want.
     small_img_size = (args.img_width, args.img_height)
-    frames = get_glf_time_np(
+    queue = []
+    frames = []
+    preds = []
+
+    for frame in get_glf_time_np(
         args.glf_path,
         start_date,
         end_date,
         small_img_size,
         args.sonar_id,
         args.crop_height,
-        args.pred_length,
         args.halfrate,
         args.cthulhu,
-    )
+    ):
+        queue.append(frame)
 
-    if frames is not None:
-        preds = predict(model, frames, device, args.pred_length, args.confidence)
-        datename = str(start_date).replace(" ", "_").replace(":", "").replace(".", "")
-        datename += "_" + str(end_date).replace(" ", "_").replace(":", "").replace(
-            ".", ""
-        )
-        save_results(frames, preds, None, args.out_path, datename, args.polar)
+        if len(queue) == args.pred_length:
+            np_queue = np.array(queue)
+            pred = predict(model, np_queue, device, args.pred_length, args.confidence)
+            datename = str(start_date).replace(" ", "_").replace(":", "").replace(".", "")
+            datename += "_" + str(end_date).replace(" ", "_").replace(":", "").replace(
+                ".", ""
+            )
+            preds.append(pred[-1])
+            frames.append(queue[-1])
+            queue.pop(0)
+
+    save_results(frames, preds, None, args.out_path, datename, args.polar)
 
 
 def save_results(
@@ -360,8 +369,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--model_class",
-        default="UNet3D",
-        help="The model class to load (default: UNet3D)",
+        default="UNetTRed",
+        help="The model class to load (default: UNetTRed)",
     )
 
     args = parser.parse_args()

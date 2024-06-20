@@ -9,7 +9,7 @@ from eval.glf import GLFBuffer
 
 def test_glf():
     testdata_dir = os.environ.get("SEALHITS_TESTDATA_DIR", default=".")
-    gbuff = GLFBuffer(testdata_dir, 854, -1, -1, None, None)
+    gbuff = GLFBuffer(testdata_dir, 854, 1632, -1, -1, None, None)
     print("GLFBuffer Start / End datetimes:", gbuff.start_date, gbuff.end_date)
     print("GLFBuffer num GLFS:", len(gbuff.dates_glfs))
     img0, date0 = gbuff.__next__()
@@ -37,7 +37,7 @@ def test_glf():
     sd = datetime.strptime("2023-03-24", "%Y-%m-%d").astimezone(pytz.UTC)
     ed = datetime.strptime("2023-03-25", "%Y-%m-%d").astimezone(pytz.UTC)
 
-    gbuff = GLFBuffer(testdata_dir, 854, sd, ed)
+    gbuff = GLFBuffer(testdata_dir, 854, 1632, sd, ed)
     print("GLFBuffer Start / End datetimes:", gbuff.start_date, gbuff.end_date)
     print("GLFBuffer num GLFS:", len(gbuff.dates_glfs))
     img0, date0 = gbuff.__next__()

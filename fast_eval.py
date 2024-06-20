@@ -230,7 +230,9 @@ def setup_sqlite(out_path: str, start_date: datetime, end_date: datetime):
 
 def main(args):
     device = torch.device("cpu" if not torch.cuda.is_available() else args.device)
-    model = load_model_pt(args.model_path, device, args.model_class)
+    model_a = load_model_pt(args.model_path, device, args.model_class)
+    model_b = load_model_pt(args.model_path, device, args.model_class)
+
     start_date = None
     end_date = None
 
@@ -261,17 +263,17 @@ def main(args):
     jobs = []
 
     gbuff0 = GLFBuffer(
-        args.glf_path, args.sonarid, args.img_width, args.img_height, start_date, mid_date
+        args.glf_path, args.sonarid, args.crop_height, args.img_width, args.img_height, start_date, mid_date
     )
 
     gbuff1 = GLFBuffer(
-        args.glf_path, args.sonarid, args.img_width, args.img_height, mid_date, end_date
+        args.glf_path, args.sonarid, args.crop_height, args.img_width, args.img_height, mid_date, end_date
     )
 
 
     with tqdm(total=estimated_total) as pbar:
-        jobs.append((model, gbuff0, start_date, mid_date))
-        jobs.append((model, gbuff1, mid_date, end_date))
+        jobs.append((model_a, gbuff0, start_date, mid_date))
+        jobs.append((model_b, gbuff1, mid_date, end_date))
     
         with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
             futures = [ex.submit(loop, m, g, args.confidence, device, img_size, args.crop_height, s, e, args.out_path, pbar, args.window_size, args.halfrate) for m,g,s,e in jobs]
@@ -302,14 +304,14 @@ if __name__ == "__main__":
     parser.add_argument(
         "-a",
         "--startdate",
-        default="",
-        help="An optional start date in Y-m-d H:M:S format (default: '').",
+        default="2023-04-01 00:00:00",
+        help="An optional start date in Y-m-d H:M:S format (default: '2023-04-01 00:00:00').",
     )
     parser.add_argument(
         "-b",
         "--enddate",
-        default="",
-        help="An optional end date in Y-m-d H:M:S format (default: '').",
+        default="2023-04-02 00:00:00",
+        help="An optional end date in Y-m-d H:M:S format (default: '2023-04-02 00:00:00').",
     )
     parser.add_argument(
         "-w",
@@ -336,7 +338,7 @@ if __name__ == "__main__":
         "--crop_height",
         type=int,
         default=1632,
-        help="Before any resize, what height do we crop raw images to?(default: 1632))",
+        help="Before any resize, what height do we crop raw images to (default: 1632)",
     )
     parser.add_argument(
         "-r",
@@ -361,8 +363,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--model_class",
-        default="UNet3D",
-        help="The model class to load (default: UNet3D)",
+        default="UNetTRed",
+        help="The model class to load (default: UNetTRed)",
     )
 
 

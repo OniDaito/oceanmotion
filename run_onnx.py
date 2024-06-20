@@ -19,6 +19,7 @@ import onnxruntime as rt
 from sealhits.db.db import DB
 from eval.eval import get_group_np, get_group_og
 from run import save_results
+import time
 
 
 def main(args):
@@ -52,6 +53,7 @@ def main(args):
     sess = rt.InferenceSession(
         args.model_file, sess_options, providers=rt.get_available_providers())
     input_name = sess.get_inputs()[0].name
+    inf_times = []
 
     # Go through the group frames as before
 
@@ -66,7 +68,10 @@ def main(args):
         stack = np.expand_dims(stack, axis=0)
         stack = stack.astype(np.float32)
     
+        t0 = time.time()
         pred_stack = sess.run(None, {input_name: stack})[0]
+        t1 = time.time()
+        inf_times.appen(t1-t0)
 
         pred = np.where(sigmoid(pred_stack) > args.confidence, 1, 0)
         pred = pred.squeeze().astype(np.uint8)
@@ -78,7 +83,7 @@ def main(args):
 
     prof_file = sess.end_profiling()
     print(prof_file)
-
+    print("Average Inference Time:", sum(inf_times)/len(inf_times))
     # Now get the original group as well
     mask = get_group_og(seal_db, args.group_huid, og_img_size, small_img_size, args.sonar_id, args.crop_height)
 
