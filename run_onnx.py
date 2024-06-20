@@ -120,8 +120,8 @@ if __name__ == "__main__":
     parser.add_argument(
         "-t",
         "--model_class",
-        default="UNet3D",
-        help="The model class to load (default: UNet3D)",
+        default="UNetTRed",
+        help="The model class to load (default: UNetTRed)",
     )
     parser.add_argument(
         "--pred_length",
