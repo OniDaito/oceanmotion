@@ -73,12 +73,20 @@ A web-based visualisation program is available that takes the output from fast_e
 
     bokeh serve --show visualise.py --args -s ~/path/to/sqlite.sql -u <db username> -w <db password> -n <database host>
 
-## Running in Docker on a cluster
+## Running in Docker, possibly on a cluster.
 
+It is possible to run OceanMotion on a cluster using Docker. A dockerfile is included, based on the nvcr.io/nvidia/pytorch:23.10-py3 container. 
+
+The script to train such a model will depend on your cluster setup, but it may look something like this:
+
+    #!/bin/bash
+    module load rootless-docker
+    start_rootless_docker.sh --quiet
+    docker run -v $HOME/oceanmotion:/oceanmotion -w /oceanmotion --gpus 1 --shm-size=1g -it --rm oceanmotion python fast_eval.py -m /path/to/trained/model.pt -o /path/to/output -g /path/to/glfs -w 16 -x 256 -y 829 -r 854 -c 0.8 -s "2023-04-01 00:00:00" -e "2023-04-02 00:00:00"
 
 ## Tests
 
-The small suite of tests requires the [sealhits_testdata]() repository. Once you have this, export the following environment variable, then run pytest as follows:
+The small suite of tests requires the [sealhits_testdata](https://github.com/OniDaito/sealhits_testdata) repository. Once you have this, export the following environment variable, then run pytest as follows:
 
     export SEALHITS_TESTDATA_DIR=/path/to/sealhits/test/data
     pytest
