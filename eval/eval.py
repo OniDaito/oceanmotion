@@ -15,7 +15,7 @@ __author__ = "Benjamin Blundell <bjb8@st-andrews.ac.uk>"
 
 import torch
 import numpy as np
-from typing import List, Tuple
+from typing import List, Tuple, Union
 import torch.nn.functional as F
 from eval.detection import blobs_in_stack
 from sealhits import utils
@@ -170,8 +170,10 @@ def get_group_og(
     small_img_size: Tuple[int, int],
     sonar_id: int,
     crop_height: int,
-):
-    """Get the original track and return it as a numpy mask.
+) -> np.array:
+    """Get the original track, converted to bounding box format,
+      and return it as a numpy mask. Rather than the original points, we draw a box around
+      all of them and return that instead.
     Args:
         seal_db (DB): The Database Object.
         group_huid (str): the group huid.
@@ -189,9 +191,13 @@ def get_group_og(
         # Remember, we perform a height crop then a resize.
         bbs = group_bbs_raw(seal_db, group, group_images[idx], og_img_size)
         mask = bbraw_to_np(bbs, og_img_size)
+    
         # Crop to the cropheight and resize - nearest-neighbour accurate
         mask = mask[0:crop_height, :]
         mask = resize(mask, (small_img_size[1], small_img_size[0]), preserve_range=True)
+        # Convert back to a uint8 and make sure its 0 or 1 on this resize
+        mask = np.where(mask > 0.0, 1.0, 0.0)
+        mask = mask.astype(np.uint8)
         masks.append(mask)
 
     return np.array(masks).astype(np.uint8)
@@ -206,7 +212,7 @@ def get_group_np(
     sonar_id: int,
     pred_length=16,
     cthulhu=False,
-) -> Tuple[np.array, Tuple[int, int]]:
+) -> Union[Tuple[np.array, Tuple[int, int]], None]:
     """Given an existing group, make a prediction as to what it is and where.
 
     Args:
@@ -224,7 +230,6 @@ def get_group_np(
     raw_img_size = None
 
     if len(group_images) <= pred_length:
-        print("Group is smaller than prediction window.")
         return None
 
     frames = []

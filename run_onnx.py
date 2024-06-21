@@ -91,8 +91,8 @@ def main(args):
             args.sonar_id,
             args.crop_height,
         )
-
         print(jaccard(mask, pred))
+
     else:
         print(prof_file)
         print("Average Inference Time:", sum(inf_times)/len(inf_times))

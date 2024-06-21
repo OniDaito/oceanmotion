@@ -115,7 +115,7 @@ def pred_to_video(
     source_np: np.array, mask_np: np.array, pred_np: np.array, outpath: str, multiclass=False
 ):
     """ Convert our numpy arrays from the process to video. source_np will be 
-    float from 0 to 1. mask_np and pred_np should be floats, either 0 or 1.
+    float from 0 to 1. mask_np and pred_np should be uint8, either 0 or 1.
     mask_np can be None.
     
     Args:
@@ -129,9 +129,10 @@ def pred_to_video(
     mask_colour = None
 
     if mask_np is not None:
-        mask_np = np.where(mask_np > 0.5, 1, 0)
-        mask_np = mask_np.astype(np.uint8)
-        mask_colour = binary_to_colour(mask_np, [0.0, 1.0, 0.0])  # Using an internal lookup table for class colours
+        if mask_np.dtype == float:
+            mask_np = np.where(mask_np > 0.5, 1, 0)
+            mask_np = mask_np.astype(np.uint8)
+        mask_colour = binary_to_colour(mask_np, [0.0, 1.0, 0.0])
 
     # base should be 0-255. Mask and pred should be 0 or 1. All should be uint8
     source_np = np.clip(source_np * 255, 0, 255).astype(np.uint8)
@@ -141,13 +142,16 @@ def pred_to_video(
     if multiclass:
         pred_colour = class_to_colour(pred_np)
     else:
+        if pred_np.dtype == float:
+            pred_np = np.where(pred_np > 0.5, 1, 0)
+            pred_np = pred_np.astype(np.uint8)
         pred_colour = binary_to_colour(pred_np,[1.0, 0.0, 0.0])
 
     # Combine
     combined = base_colour
 
     if mask_colour is not None:
-        combined = add_blend(mask_colour, base_colour, 0.6)
+        combined = add_blend(mask_colour, base_colour, 0.4)
 
     combined = add_blend(pred_colour, base_colour, 0.8)
     combined = np.clip(combined, 0, 255).astype(np.uint8)

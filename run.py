@@ -10,6 +10,8 @@ from a group or a timerange + glfs.
 
 from __future__ import annotations
 
+from eval.detection import bbs_in_image
+
 __all__ = ["main"]
 __version__ = "0.9.0"
 __author__ = "Benjamin Blundell <bjb8@st-andrews.ac.uk>"
@@ -21,7 +23,7 @@ from tqdm import tqdm
 import numpy as np
 from util.model import load_model_pt
 from datetime import datetime
-from eval.eval import jaccard, predict, get_group_np, get_group_og
+from eval.eval import bbraw_to_np, jaccard, predict, get_group_np, get_group_og
 from eval.glf import get_glf_time_np
 from util.image import pred_to_gif
 from util.video import pred_to_video
@@ -30,14 +32,14 @@ from sealhits.image import fan_distort, bearing_table
 from sealhits.utils import get_fan_size
 
 
-def predict_group(args, model, device:str):
+def predict_group(args, model, device: str):
     """We are predicting a group from the database.
-    
+
     Args:
         args (): the program arguments.
         model (): the model we are using.
         device (str): the device we are on.
-    
+
     """
     small_img_size = (args.img_width, args.img_height)
 
@@ -49,7 +51,7 @@ def predict_group(args, model, device:str):
         host=args.dbhost,
     )
 
-    frames, og_img_size = get_group_np(
+    group_res = get_group_np(
         seal_db,
         args.group_huid,
         small_img_size,
@@ -60,9 +62,32 @@ def predict_group(args, model, device:str):
         args.cthulhu,
     )
 
-    preds = predict(model, frames, device, args.pred_length)
+    if group_res is None:
+        if args.score_only:
+            print(0)
+        else:
+            print(
+                "Group",
+                args.group_huid,
+                "is shorter than the window with sonar",
+                args.sonar_id,
+            )
+        return
 
-    # Now get the original group as well
+    frames, og_img_size = group_res
+    preds = predict(model, frames, device, args.pred_length)
+    preds_bbs = []
+
+    for pred in preds:
+        bbs = bbs_in_image(pred)
+        npred = bbraw_to_np(bbs,(frames.shape[2], frames.shape[1]))
+        preds_bbs.append(npred)
+
+    preds_bbs = np.array(preds_bbs)
+        
+    # Now get the original group as well. This original mask
+    # is actually converted to a bounding box, so we should 
+    # do the same with our prediction.
     mask = get_group_og(
         seal_db,
         args.group_huid,
@@ -73,11 +98,11 @@ def predict_group(args, model, device:str):
     )
 
     if args.score_only:
-        print(jaccard(mask, preds))
+        print(jaccard(mask, preds_bbs))
     else:
         save_results(
             frames,
-            preds,
+            preds_bbs,
             mask,
             args.out_path,
             args.group_huid + "_" + str(args.sonar_id),
@@ -119,7 +144,9 @@ def predict_times(args, model, start_date: datetime, end_date: datetime, device:
         if len(queue) == args.pred_length:
             np_queue = np.array(queue)
             pred = predict(model, np_queue, device, args.pred_length, args.confidence)
-            datename = str(start_date).replace(" ", "_").replace(":", "").replace(".", "")
+            datename = (
+                str(start_date).replace(" ", "_").replace(":", "").replace(".", "")
+            )
             datename += "_" + str(end_date).replace(" ", "_").replace(":", "").replace(
                 ".", ""
             )

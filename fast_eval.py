@@ -121,7 +121,6 @@ def loop(
                         detecting = True
                     
                     bbs = bbs_in_image(cpred)
-
                     cpred = (cpred * 255).astype(np.uint8)
                     current_detection.append(cpred)
                     current_bbs.append((img_time, bbs))
@@ -179,6 +178,7 @@ def loop(
         print("GBuffer completed.")
 
     return "Completed"
+
 
 def setup_sqlite(out_path: str, start_date: datetime, end_date: datetime):
     """Create the SQLITE file to hold the required outputs.
@@ -367,7 +367,5 @@ if __name__ == "__main__":
         help="The model class to load (default: UNetTRed)",
     )
 
-
     args = parser.parse_args()
-
     main(args)
