@@ -86,7 +86,7 @@ The script to train such a model will depend on your cluster setup, but it may l
 
 ## Tests
 
-The small suite of tests requires the [sealhits_testdata](https://github.com/OniDaito/sealhits_testdata) repository. Once you have this, export the following environment variable, then run pytest as follows:
+The small suite of tests requires the [sealhits_testdata]() repository. Once you have this, export the following environment variable, then run pytest as follows:
 
     export SEALHITS_TESTDATA_DIR=/path/to/sealhits/test/data
     pytest

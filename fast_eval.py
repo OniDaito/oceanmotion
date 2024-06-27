@@ -1,11 +1,11 @@
 #!/usr/bin/env python
 r"""
-     ___                   _  _      _  o          
-     )) ) __  __ ___  _ _  )\/,) __  )L _  __  _ _ 
-    ((_( ((_ (('((_( ((\( ((`(( ((_)(( (( ((_)((\( 
+     ___                   _  _      _  o
+     )) ) __  __ ___  _ _  )\/,) __  )L _  __  _ _
+    ((_( ((_ (('((_( ((\( ((`(( ((_)(( (( ((_)((\(
 
 fast_eval.py runs an OceanMotion model against a list of
-GLFs. 
+GLFs.
 
 It previously requested images from a websocket server
 until there are no more. But this was removed for brevity.
@@ -29,7 +29,6 @@ import os
 import numpy as np
 import sqlite3
 from sqlite3 import Error
-from concurrent.futures import ThreadPoolExecutor, as_completed
 from eval.detection import bbs_in_image
 from datetime import datetime, timedelta
 from skimage.transform import resize
@@ -38,6 +37,7 @@ from eval.eval import predict
 from util.model import load_model_pt
 from tqdm import tqdm
 from typing import Tuple
+
 
 def loop(
     model,
@@ -53,9 +53,9 @@ def loop(
     qsize=16,
     halfrate=False,
 ):
-    """ Loop through the range of GLFs, predicting and saving these predictions 
+    """Loop through the range of GLFs, predicting and saving these predictions
     as fast as possible.
-    
+
     Args:
         model (): Our current model.
         gbuff (GLFBuffer): a GLFBuffer instance.
@@ -100,7 +100,7 @@ def loop(
             final_img = np_img[0:crop_height, :]
             final_img = resize(final_img, img_size, preserve_range=True)
             final_img = final_img.astype(float) / 255.0
-            assert(np.max(final_img) <= 1.0) 
+            assert np.max(final_img) <= 1.0
             queue.append((final_img, img_time))
 
             # Do we have a big enough queue yet?
@@ -119,7 +119,7 @@ def loop(
                 if np.max(cpred) > 0:
                     if not detecting:
                         detecting = True
-                    
+
                     bbs = bbs_in_image(cpred)
                     cpred = (cpred * 255).astype(np.uint8)
                     current_detection.append(cpred)
@@ -230,9 +230,7 @@ def setup_sqlite(out_path: str, start_date: datetime, end_date: datetime):
 
 def main(args):
     device = torch.device("cpu" if not torch.cuda.is_available() else args.device)
-    model_a = load_model_pt(args.model_path, device, args.model_class)
-    model_b = load_model_pt(args.model_path, device, args.model_class)
-
+    model = load_model_pt(args.model_path, device, args.model_class)
     start_date = None
     end_date = None
 
@@ -253,36 +251,39 @@ def main(args):
         print("Not using end date.")
 
     assert start_date < end_date
-    
-    estimated_total = (end_date - start_date)
+
+    estimated_total = end_date - start_date
     estimated_total = int(estimated_total.total_seconds() * 4)
     print("Estimated number of steps:", estimated_total)
 
-    mid_date = (end_date - start_date) / 2 + start_date
+    # Removed the threading as we are really limited by disk access.
+    gbuff = GLFBuffer(
+        args.glf_path,
+        args.sonarid,
+        args.crop_height,
+        args.img_width,
+        args.img_height,
+        start_date,
+        end_date,
+    )
+
     img_size = (args.img_width, args.img_height)
-    jobs = []
-
-    gbuff0 = GLFBuffer(
-        args.glf_path, args.sonarid, args.crop_height, args.img_width, args.img_height, start_date, mid_date
-    )
-
-    gbuff1 = GLFBuffer(
-        args.glf_path, args.sonarid, args.crop_height, args.img_width, args.img_height, mid_date, end_date
-    )
-
 
     with tqdm(total=estimated_total) as pbar:
-        jobs.append((model_a, gbuff0, start_date, mid_date))
-        jobs.append((model_b, gbuff1, mid_date, end_date))
-    
-        with ThreadPoolExecutor(max_workers=len(jobs)) as ex:
-            futures = [ex.submit(loop, m, g, args.confidence, device, img_size, args.crop_height, s, e, args.out_path, pbar, args.window_size, args.halfrate) for m,g,s,e in jobs]
-
-            for future in as_completed(futures):
-                try:
-                    future.result()
-                except Exception as exc:
-                    print('%r generated an exception: %s' % (future, exc))
+        loop(
+            model,
+            gbuff,
+            args.confidence,
+            device,
+            img_size,
+            args.crop_height,
+            start_date,
+            end_date,
+            args.out_path,
+            pbar,
+            args.window_size,
+            args.halfrate,
+        )
 
 
 if __name__ == "__main__":
@@ -296,7 +297,9 @@ if __name__ == "__main__":
     parser.add_argument(
         "-m", "--model_path", default=".", help="The path to the saved model."
     )
-    parser.add_argument("-o", "--out_path", default=".", help="The path for the output.")
+    parser.add_argument(
+        "-o", "--out_path", default=".", help="The path for the output."
+    )
     parser.add_argument(
         "-l", "--glf_path", default=".", help="The path to the GLF Files."
     )

@@ -9,6 +9,7 @@ ready to feed our network.
 """
 
 from __future__ import annotations
+from zipfile import BadZipFile
 
 __all__ = ["GLFBuffer", "images_from_glf", "get_glf_time_np"]
 __version__ = "0.9.0"
@@ -148,14 +149,26 @@ class GLFBuffer:
                     return (image_np, image_time)
 
             self.glf.__exit__()
-            self.file_pos += 1
+            
+            while True:
+                # Apparently, we still get bad zip files in the GLF list so we must batch it
+                # Move on to the next one and try again. We loop around the next GLF file
+                # here, skipping any bad GLFs.
+                self.file_pos += 1
+                
+                if self.file_pos >= len(self.dates_glfs):
+                    #raise StopIteration # TODO - could just return None here instead I think.
+                    return None
+                
+                try:
+                    self.glf = GLF(self.dates_glfs[self.file_pos][2]).__enter__()
+                    self._pop_records()
+                    self.current_date = self.records[0].db_tx_time  # First spot in the new file
+                    break
 
-            if self.file_pos >= len(self.dates_glfs):
-                raise StopIteration
-
-            self.glf = GLF(self.dates_glfs[self.file_pos][2]).__enter__()
-            self._pop_records()
-            self.current_date = self.records[0].db_tx_time  # First spot in the new file
+                except BadZipFile as e:
+                    print("Bad Zip File:", self.dates_glfs[self.file_pos][2])
+                    print(e)
 
 
 def images_from_glf(
