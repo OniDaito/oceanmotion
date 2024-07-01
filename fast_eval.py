@@ -97,9 +97,12 @@ def loop(
                 continue
 
             # Perform the crop and resize on our images.
-            final_img = np_img[0:crop_height, :]
-            final_img = resize(final_img, img_size, preserve_range=True)
-            final_img = final_img.astype(float) / 255.0
+            temp_img = np_img[0:crop_height, :]
+            temp_img = resize(temp_img, img_size, preserve_range=True)
+            # We need a delete and rename here as this allocation seems to stay around when it shouldn't otherwise.
+            final_img = temp_img.astype(float) / 255.0
+            del temp_img
+
             assert np.max(final_img) <= 1.0
             queue.append((final_img, img_time))
 
