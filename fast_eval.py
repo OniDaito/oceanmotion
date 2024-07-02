@@ -86,99 +86,94 @@ def loop(
     pcount = 0
     rows = []
 
-    try:
-        while True:
-            # tick = time.perf_counter()
-            np_img, img_time = gbuff.__next__()
+    for np_img, img_time in gbuff:
+        # Potentially skip every other frame
+        if halfrate and step % 2 == 0:
+            step += 1
+            continue
 
-            # Potentially skip every other frame
-            if halfrate and step % 2 == 0:
-                step += 1
-                continue
+        # Perform the crop and resize on our images.
+        temp_img = np_img[0:crop_height, :]
+        temp_img = resize(temp_img, img_size, preserve_range=True)
+        # We need a delete and rename here as this allocation seems to stay around when it shouldn't otherwise.
+        final_img = temp_img.astype(float) / 255.0
+        del temp_img
 
-            # Perform the crop and resize on our images.
-            temp_img = np_img[0:crop_height, :]
-            temp_img = resize(temp_img, img_size, preserve_range=True)
-            # We need a delete and rename here as this allocation seems to stay around when it shouldn't otherwise.
-            final_img = temp_img.astype(float) / 255.0
-            del temp_img
+        assert np.max(final_img) <= 1.0
+        queue.append((final_img, img_time))
 
-            assert np.max(final_img) <= 1.0
-            queue.append((final_img, img_time))
+        # Do we have a big enough queue yet?
+        if len(queue) > qsize:
+            queue.pop(0)
+            np_queue = np.array([q[0] for q in queue])
+            preds = predict(model, np_queue, device, qsize, confidence)
 
-            # Do we have a big enough queue yet?
-            if len(queue) > qsize:
-                queue.pop(0)
-                np_queue = np.array([q[0] for q in queue])
-                preds = predict(model, np_queue, device, qsize, confidence)
+            # Need to see if there is any detection here in the preds
+            # TODO - this is super simple and also, we are looking at the
+            # most recent frame only.
+            # As I recall, fancier methods didn't really seem to work.
+            cpred = preds[-1]
+            cbase = final_img
 
-                # Need to see if there is any detection here in the preds
-                # TODO - this is super simple and also, we are looking at the
-                # most recent frame only.
-                # As I recall, fancier methods didn't really seem to work.
-                cpred = preds[-1]
-                cbase = final_img
+            if np.max(cpred) > 0:
+                if not detecting:
+                    detecting = True
 
-                if np.max(cpred) > 0:
-                    if not detecting:
-                        detecting = True
+                bbs = bbs_in_image(cpred)
+                cpred = (cpred * 255).astype(np.uint8)
+                current_detection.append(cpred)
+                current_bbs.append((img_time, bbs))
+                current_base.append(cbase)
+                current_frame_times.append(img_time)
+                pcount += len(bbs)
 
-                    bbs = bbs_in_image(cpred)
-                    cpred = (cpred * 255).astype(np.uint8)
-                    current_detection.append(cpred)
-                    current_bbs.append((img_time, bbs))
-                    current_base.append(cbase)
-                    current_frame_times.append(img_time)
-                    pcount += len(bbs)
+            elif detecting:
+                # We can stop detecting now.
+                detecting = False
+                current_detection = []
+                current_frame_times = []
+                # Now write out to the sqlite file
+                rows = []
 
-                elif detecting:
-                    # We can stop detecting now.
-                    detecting = False
-                    current_detection = []
-                    current_frame_times = []
-                    # Now write out to the sqlite file
-                    rows = []
+                for dd_img, bboxes in sorted(current_bbs):
+                    for bbox in bboxes:
+                        row = (
+                            str(dd_img),
+                            bbox.x_min,
+                            bbox.y_min,
+                            bbox.x_max,
+                            bbox.y_max,
+                            np_filename,
+                        )
+                        rows.append(row)
 
-                    for dd_img, bboxes in sorted(current_bbs):
-                        for bbox in bboxes:
-                            row = (
-                                str(dd_img),
-                                bbox.x_min,
-                                bbox.y_min,
-                                bbox.x_max,
-                                bbox.y_max,
-                                np_filename,
-                            )
-                            rows.append(row)
+                cur.executemany(
+                    "INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows
+                )
+                conn.commit()
+                rows = []
+                current_bbs = []
 
-                    cur.executemany(
-                        "INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows
-                    )
-                    conn.commit()
-                    rows = []
-                    current_bbs = []
+            sys.stdout.flush()
 
-                sys.stdout.flush()
+        # Update our stats for the count
+        # Only store the last ten counts
+        if img_time >= ptime + pwindow:
+            progress.append((ptime, pcount))
+            ptime = img_time
+            pcount = 0
 
-            # Update our stats for the count
-            # Only store the last ten counts
-            if img_time >= ptime + pwindow:
-                progress.append((ptime, pcount))
-                ptime = img_time
-                pcount = 0
+            if len(progress) > 10:
+                progress.pop(0)
 
-                if len(progress) > 10:
-                    progress.pop(0)
+        pbar.update(1)
 
-            pbar.update(1)
+    if len(rows) > 0:
+        cur.executemany("INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows)
+        conn.commit()
+        rows = []
 
-    except StopIteration:
-        if len(rows) > 0:
-            cur.executemany("INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows)
-            conn.commit()
-            rows = []
-
-        print("GBuffer completed.")
+    print("GBuffer completed.")
 
     return "Completed"
 
