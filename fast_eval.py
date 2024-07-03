@@ -107,10 +107,11 @@ def loop(
             if len(queue) > qsize:
                 popped = queue.pop(0)
                 del popped
-                
-                np_queue = np.array([q[0] for q in queue])
+                tq = [q[0] for q in queue]
+                np_queue = np.array(tq)
                 preds = predict(model, np_queue, device, qsize, confidence)
                 del np_queue
+                del tq
 
                 # Need to see if there is any detection here in the preds
                 # TODO - this is super simple and also, we are looking at the

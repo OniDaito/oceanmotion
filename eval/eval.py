@@ -294,5 +294,7 @@ def predict(
         # TODO - this line essentially means that data arriving later takes precidence
         # past predictions for a frame are overwritten by future results. Is that ideal?
         preds[start:end, :, :] = pred_stack
+        assert(preds.base is None)
+        del pred_stack
 
     return preds
