@@ -99,10 +99,11 @@ def _predict(model, frames: np.array, device: str, confidence: float) -> np.arra
     """
     assert frames.shape[0] > 1
     stack = torch.from_numpy(frames).to(device=device)
-    stack = stack.unsqueeze(0).unsqueeze(0).to(dtype=torch.float32)
+    unsqueezed = stack.unsqueeze(0).unsqueeze(0).to(dtype=torch.float32)
+    del stack
 
     # TODO - could return probabilities here?
-    pred = model(stack)
+    pred = model(unsqueezed)
     pred = torch.where(F.sigmoid(pred) > confidence, 1, 0)
     pred = pred.squeeze().cpu().detach().long().numpy().astype(np.uint8)
 
