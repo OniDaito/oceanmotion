@@ -157,8 +157,7 @@ class GLFBuffer:
                 self.file_pos += 1
                 
                 if self.file_pos >= len(self.dates_glfs):
-                    #raise StopIteration # TODO - could just return None here instead I think.
-                    return None
+                    raise StopIteration
                 
                 try:
                     self.glf = GLF(self.dates_glfs[self.file_pos][2]).__enter__()
