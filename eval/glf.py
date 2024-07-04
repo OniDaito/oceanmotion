@@ -121,32 +121,37 @@ class GLFBuffer:
                     if self.current_date >= self.end_date:
                         raise StopIteration
 
-                    image_data, image_size = self.glf.extract_image(image_rec)
-                    image_np = None
+                    try:
+                        image_data, image_size = self.glf.extract_image(image_rec)
+                        image_np = None
 
-                    # Intial crop before resize.
-                    if image_size[0] > self.crop_height:
-                        image_data = image_data[0:self.crop_height, :]
+                        # Intial crop before resize.
+                        if image_size[0] > self.crop_height:
+                            image_data = image_data[0:self.crop_height, :]
 
-                    if self.img_height > 0 and self.img_width > 0:
-                        if (
-                            image_size[0] != self.img_width
-                            or image_size[1] != self.img_height
-                        ):
-                            pil_img = Image.frombuffer(
-                                "L", image_size, image_data, "raw", "L", 0, 1
+                        if self.img_height > 0 and self.img_width > 0:
+                            if (
+                                image_size[0] != self.img_width
+                                or image_size[1] != self.img_height
+                            ):
+                                pil_img = Image.frombuffer(
+                                    "L", image_size, image_data, "raw", "L", 0, 1
+                                )
+                                pil_img = pil_img.resize(
+                                    (self.img_width, self.img_height),
+                                    resample=Image.NEAREST,
+                                )
+                                image_np = np.array(pil_img)
+
+                        if image_np is None:
+                            image_np = np.frombuffer(image_data, dtype=np.uint8).reshape(
+                                (image_size[1], image_size[0])
                             )
-                            pil_img = pil_img.resize(
-                                (self.img_width, self.img_height),
-                                resample=Image.NEAREST,
-                            )
-                            image_np = np.array(pil_img)
-
-                    if image_np is None:
-                        image_np = np.frombuffer(image_data, dtype=np.uint8).reshape(
-                            (image_size[1], image_size[0])
-                        )
-                    return (image_np, image_time)
+                        return (image_np, image_time)
+                    except Exception as e:
+                        print("Failed to extract image at time", self.current_date)
+                        print(e)
+                        print("Continuing...")
 
             self.glf.__exit__()
             

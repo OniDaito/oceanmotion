@@ -37,6 +37,7 @@ from eval.eval import predict
 from util.model import load_model_pt
 from tqdm import tqdm
 from typing import Tuple
+import gc
 
 
 def loop(
@@ -105,62 +106,67 @@ def loop(
 
             # Do we have a big enough queue yet?
             if len(queue) > qsize:
-                popped = queue.pop(0)
-                del popped
-                tq = [q[0] for q in queue]
-                np_queue = np.array(tq)
-                preds = predict(model, np_queue, device, qsize, confidence)
-                del np_queue
-                del tq
+                try:
+                    popped = queue.pop(0)
+                    del popped
+                    tq = [q[0] for q in queue]
+                    np_queue = np.array(tq)
+                    preds = predict(model, np_queue, device, qsize, confidence)
+                    del np_queue
+                    del tq
 
-                # Need to see if there is any detection here in the preds
-                # TODO - this is super simple and also, we are looking at the
-                # most recent frame only.
-                # As I recall, fancier methods didn't really seem to work.
-                cpred = preds[-1]
-                cbase = final_img
+                    # Need to see if there is any detection here in the preds
+                    # TODO - this is super simple and also, we are looking at the
+                    # most recent frame only.
+                    # As I recall, fancier methods didn't really seem to work.
+                    cpred = preds[-1]
+                    cbase = final_img
 
-                if np.max(cpred) > 0:
-                    if not detecting:
-                        detecting = True
+                    if np.max(cpred) > 0:
+                        if not detecting:
+                            detecting = True
 
-                    bbs = bbs_in_image(cpred)
-                    cpred = (cpred * 255).astype(np.uint8)
-                    current_detection.append(cpred)
-                    current_bbs.append((img_time, bbs))
-                    current_base.append(cbase)
-                    current_frame_times.append(img_time)
-                    pcount += len(bbs)
+                        bbs = bbs_in_image(cpred)
+                        cpred = (cpred * 255).astype(np.uint8)
+                        current_detection.append(cpred)
+                        current_bbs.append((img_time, bbs))
+                        current_base.append(cbase)
+                        current_frame_times.append(img_time)
+                        pcount += len(bbs)
 
-                elif detecting:
-                    # We can stop detecting now.
-                    detecting = False
-                    current_detection = []
-                    current_frame_times = []
-                    # Now write out to the sqlite file
-                    rows = []
+                    elif detecting:
+                        # We can stop detecting now.
+                        detecting = False
+                        current_detection = []
+                        current_frame_times = []
+                        # Now write out to the sqlite file
+                        rows = []
 
-                    for dd_img, bboxes in sorted(current_bbs):
-                        for bbox in bboxes:
-                            row = (
-                                str(dd_img),
-                                bbox.x_min,
-                                bbox.y_min,
-                                bbox.x_max,
-                                bbox.y_max,
-                                np_filename,
-                            )
-                            rows.append(row)
+                        for dd_img, bboxes in sorted(current_bbs):
+                            for bbox in bboxes:
+                                row = (
+                                    str(dd_img),
+                                    bbox.x_min,
+                                    bbox.y_min,
+                                    bbox.x_max,
+                                    bbox.y_max,
+                                    np_filename,
+                                )
+                                rows.append(row)
 
-                    cur.executemany(
-                        "INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows
-                    )
-                    conn.commit()
-                    rows = []
-                    current_bbs = []
+                        cur.executemany(
+                            "INSERT INTO detections VALUES(?, ?, ?, ?, ?, ?)", rows
+                        )
+                        conn.commit()
+                        rows = []
+                        current_bbs = []
 
-                sys.stdout.flush()
-                del preds
+                    sys.stdout.flush()
+                    del preds
+                except Exception as e:
+                    print("Failed prediction at time ", img_time)
+                    print(e)
+                    print("Continuing...")
 
             # Update our stats for the count
             # Only store the last ten counts
@@ -173,6 +179,7 @@ def loop(
                     progress.pop(0)
 
             pbar.update(1)
+            gc.collect()
 
     except StopIteration:
         # Not sure I like this way of leaving the loop but GLF buffer doesn't know,

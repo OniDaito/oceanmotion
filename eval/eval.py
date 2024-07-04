@@ -100,14 +100,17 @@ def _predict(model, frames: np.array, device: str, confidence: float) -> np.arra
     assert frames.shape[0] > 1
     stack = torch.from_numpy(frames).to(device=device)
     unsqueezed = stack.unsqueeze(0).unsqueeze(0).to(dtype=torch.float32)
-    del stack
 
     # TODO - could return probabilities here?
     pred = model(unsqueezed)
-    pred = torch.where(F.sigmoid(pred) > confidence, 1, 0)
-    pred = pred.squeeze().cpu().detach().long().numpy().astype(np.uint8)
+    conf = torch.where(F.sigmoid(pred) > confidence, 1, 0)
+    conf = conf.squeeze()
+    final = conf.numpy(force=True)
+    del conf
+    torch.cuda.empty_cache()
 
-    return pred
+    final = final.astype(np.uint8)
+    return final
 
 
 def counts(bbs: List[XYBox], pred_single: np.array):
