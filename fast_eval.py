@@ -37,6 +37,7 @@ from eval.eval import predict
 from util.model import load_model_pt
 from tqdm import tqdm
 from typing import Tuple
+import copy
 import gc
 
 
@@ -77,10 +78,7 @@ def loop(
     step = 0
     np_filename = ""
     detecting = False
-    current_detection = []
     current_bbs = []
-    current_base = []
-    current_frame_times = []
     progress = [(start_time, 0)]
     pwindow = timedelta(seconds=30)  # number of seconds for our plotting window
     ptime = start_time
@@ -119,26 +117,19 @@ def loop(
                     # TODO - this is super simple and also, we are looking at the
                     # most recent frame only.
                     # As I recall, fancier methods didn't really seem to work.
-                    cpred = preds[-1]
-                    cbase = final_img
+                    cpred = copy.deepcopy(preds[-1])
 
                     if np.max(cpred) > 0:
                         if not detecting:
                             detecting = True
 
                         bbs = bbs_in_image(cpred)
-                        cpred = (cpred * 255).astype(np.uint8)
-                        current_detection.append(cpred)
                         current_bbs.append((img_time, bbs))
-                        current_base.append(cbase)
-                        current_frame_times.append(img_time)
                         pcount += len(bbs)
 
                     elif detecting:
                         # We can stop detecting now.
                         detecting = False
-                        current_detection = []
-                        current_frame_times = []
                         # Now write out to the sqlite file
                         rows = []
 
@@ -179,7 +170,7 @@ def loop(
                     progress.pop(0)
 
             pbar.update(1)
-            gc.collect()
+            gc.collect() # Seems overkill to have garbage collection explicit?
 
     except StopIteration:
         # Not sure I like this way of leaving the loop but GLF buffer doesn't know,
